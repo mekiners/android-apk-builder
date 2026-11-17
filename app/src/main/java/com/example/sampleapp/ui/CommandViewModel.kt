@@ -1,8 +1,6 @@
 package com.example.sampleapp.ui
 
 import android.app.Application
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Intent
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
@@ -37,12 +35,9 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // NEW: Helper function to tell the widget to refresh
     private fun refreshWidget() {
         val context = getApplication<Application>()
-        val intent = Intent(context, CozyWidget::class.java).apply {
-            action = "ACTION_REFRESH_WIDGET"
-        }
+        val intent = Intent(context, CozyWidget::class.java).apply { action = "ACTION_REFRESH_WIDGET" }
         context.sendBroadcast(intent)
     }
 
@@ -62,7 +57,7 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
                 AlarmScheduler.schedule(getApplication(), task.timestamp, task.title, task.id.toInt())
             }
             Toast.makeText(getApplication(), "Added to $categoryName", Toast.LENGTH_SHORT).show()
-            refreshWidget() // NEW: Trigger widget update
+            refreshWidget() 
         }
     }
 
@@ -86,21 +81,33 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
                     db.userDao().updateUser(currentUser.copy(coins = currentUser.coins - 1))
                 }
             }
-            refreshWidget() // NEW: Trigger widget update
+            refreshWidget() 
         }
     }
 
-    fun updateTaskDetails(task: TaskEntity, newTitle: String, newRecurrence: String) {
+    fun updateTaskDetails(task: TaskEntity, newTitle: String, newRecurrence: String, newTimestamp: Long?) {
         viewModelScope.launch {
-            db.taskDao().updateTask(task.copy(title = newTitle, recurrence = newRecurrence))
-            refreshWidget() // NEW: Trigger widget update
+            val updated = task.copy(title = newTitle, recurrence = newRecurrence, timestamp = newTimestamp)
+            db.taskDao().updateTask(updated)
+            if (newTimestamp != null) {
+                AlarmScheduler.schedule(getApplication(), newTimestamp, newTitle, task.id.toInt())
+            }
+            refreshWidget() 
         }
     }
 
     fun deleteTask(task: TaskEntity) {
         viewModelScope.launch { 
             db.taskDao().deleteTask(task)
-            refreshWidget() // NEW: Trigger widget update
+            refreshWidget() 
+        }
+    }
+
+    // NEW: Clear completed tasks
+    fun clearCompletedTasks() {
+        viewModelScope.launch {
+            db.taskDao().deleteCompletedTasks()
+            refreshWidget()
         }
     }
 
