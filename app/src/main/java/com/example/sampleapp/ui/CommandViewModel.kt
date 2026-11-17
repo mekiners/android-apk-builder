@@ -103,7 +103,6 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // NEW: Clear completed tasks
     fun clearCompletedTasks() {
         viewModelScope.launch {
             db.taskDao().deleteCompletedTasks()
@@ -117,6 +116,11 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
 
     fun addReward(title: String, cost: Int) {
         viewModelScope.launch { db.rewardDao().insertReward(RewardEntity(title = title, cost = cost)) }
+    }
+
+    // NEW: Delete Reward Function
+    fun deleteReward(reward: RewardEntity) {
+        viewModelScope.launch { db.rewardDao().deleteReward(reward) }
     }
 
     fun claimReward(reward: RewardEntity) {
