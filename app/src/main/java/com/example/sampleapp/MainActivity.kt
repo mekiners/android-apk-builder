@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,7 +60,7 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
     var taskToEdit by remember { mutableStateOf<TaskEntity?>(null) }
 
     if (showShopScreen) {
-        ShopScreen(rewards, user?.coins ?: 0, onBack = { showShopScreen = false }, onAddReward = viewModel::addReward, onClaim = viewModel::claimReward)
+        ShopScreen(rewards, user?.coins ?: 0, onBack = { showShopScreen = false }, onAddReward = viewModel::addReward, onClaim = viewModel::claimReward, onDeleteReward = viewModel::deleteReward)
         return
     }
 
@@ -101,6 +102,16 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
             val completedTasks = filteredTasks.filter { it.isCompleted }
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                
+                // NEW: Empty State Message
+                if (pendingTasks.isEmpty() && completedTasks.isEmpty()) {
+                    item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Text("Nothing here! Time for a cozy break ☕", color = CozyTheme.Primary, fontSize = 16.sp, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+
                 items(pendingTasks) { task ->
                     TaskCard(task, onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = { taskToEdit = task })
                 }
@@ -121,7 +132,7 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
         }
     }
 
-    // EDIT / RESCHEDULE DIALOG WITH DATE/TIME PICKER
+    // EDIT / RESCHEDULE DIALOG
     taskToEdit?.let { task ->
         val context = LocalContext.current
         var editTitle by remember { mutableStateOf(task.title) }
@@ -137,7 +148,6 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
                     OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text("Task Name") })
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // DATE/TIME PICKER BUTTON
                     val dateString = if (editTimestamp != null) SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(editTimestamp!!)) else "No Alarm Set"
                     Button(onClick = {
                         val cal = Calendar.getInstance()
@@ -195,7 +205,7 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
 }
 
 @Composable
-fun ShopScreen(rewards: List<RewardEntity>, currentCoins: Int, onBack: () -> Unit, onAddReward: (String, Int) -> Unit, onClaim: (RewardEntity) -> Unit) {
+fun ShopScreen(rewards: List<RewardEntity>, currentCoins: Int, onBack: () -> Unit, onAddReward: (String, Int) -> Unit, onClaim: (RewardEntity) -> Unit, onDeleteReward: (RewardEntity) -> Unit) {
     var showAddDialog by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxSize().background(CozyTheme.Background).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -216,6 +226,10 @@ fun ShopScreen(rewards: List<RewardEntity>, currentCoins: Int, onBack: () -> Uni
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(onClick = { onClaim(reward) }, colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Primary)) {
                             Text("Claim")
+                        }
+                        // NEW: Delete Reward Button
+                        IconButton(onClick = { onDeleteReward(reward) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray)
                         }
                     }
                 }
@@ -263,7 +277,6 @@ fun TaskCard(task: TaskEntity, onToggle: () -> Unit, onDelete: () -> Unit, onEdi
                     Text(task.category, fontSize = 12.sp, color = CozyTheme.Primary)
                     if (task.recurrence != "None") Text(" • 🔄 ${task.recurrence}", fontSize = 12.sp, color = CozyTheme.Primary)
                 }
-                // Show time if it exists
                 if (task.timestamp != null) {
                     Text(SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(task.timestamp)), fontSize = 12.sp, color = Color.Gray)
                 }
