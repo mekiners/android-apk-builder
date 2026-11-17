@@ -6,5 +6,6 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "categories")
 data class CategoryEntity(
     @PrimaryKey val name: String,
-    val icon: String = "📝"
+    val icon: String = "📝",
+    val colorHex: String = "#FFFDF5" // Default cozy white
 )
