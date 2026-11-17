@@ -7,11 +7,12 @@ import androidx.room.RoomDatabase
 import kotlinx.coroutines.flow.Flow
 import androidx.room.*
 
-@Database(entities = [TaskEntity::class, CategoryEntity::class, UserEntity::class], version = 2, exportSchema = false)
+@Database(entities = [TaskEntity::class, CategoryEntity::class, UserEntity::class, RewardEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun categoryDao(): CategoryDao
     abstract fun userDao(): UserDao
+    abstract fun rewardDao(): RewardDao
 
     companion object {
         @Volatile
@@ -24,7 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "cozy_assistant_db"
                 )
-                .fallbackToDestructiveMigration() // Wipes old V1 data
+                .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance
                 instance
@@ -59,4 +60,12 @@ interface UserDao {
     fun getUser(): Flow<UserEntity?>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun updateUser(user: UserEntity)
+}
+
+@Dao
+interface RewardDao {
+    @Query("SELECT * FROM rewards")
+    fun getAllRewards(): Flow<List<RewardEntity>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReward(reward: RewardEntity)
 }
