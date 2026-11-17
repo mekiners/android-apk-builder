@@ -5,65 +5,54 @@ import java.util.Calendar
 data class ParsedCommand(
     val type: CommandType,
     val text: String,
-    val timestamp: Long? = null
+    val timestamp: Long? = null,
+    val recurrence: String = "None"
 )
 
-enum class CommandType { REMINDER, NOTE, TODO }
+enum class CommandType { TASK }
 
 object CommandParser {
-
     fun parse(raw: String): ParsedCommand? {
         val lower = raw.lowercase().trim()
+        if (lower.isEmpty()) return null
 
-        if (lower.startsWith("remind")) {
-            val body = raw.substringAfter("to", "").trim()
-            if (body.isBlank()) return null
+        var text = raw
+        var timestamp: Long? = null
+        var recurrence = "None"
 
-            val timePart = body.substringAfterLast(" at ", "")
-            val textPart = body.substringBeforeLast(" at ", body).trim()
+        // Look for recurrence words
+        if (lower.contains("daily")) { recurrence = "Daily"; text = text.replace("daily", "", ignoreCase = true) }
+        if (lower.contains("weekly")) { recurrence = "Weekly"; text = text.replace("weekly", "", ignoreCase = true) }
+        if (lower.contains("monthly")) { recurrence = "Monthly"; text = text.replace("monthly", "", ignoreCase = true) }
 
-            val timestamp = parseTime(timePart)
-            return ParsedCommand(CommandType.REMINDER, textPart, timestamp)
+        // Very basic time parsing (looks for "at 5pm")
+        if (lower.contains(" at ")) {
+            val timePart = lower.substringAfterLast(" at ").trim()
+            timestamp = parseTime(timePart)
+            if (timestamp != null) {
+                text = text.substringBeforeLast(" at ", text).trim()
+            }
         }
 
-        if (lower.startsWith("note:")) {
-            val text = raw.substringAfter(":").trim()
-            return if (text.isBlank()) null else ParsedCommand(CommandType.NOTE, text)
-        }
+        // Clean up text
+        text = text.replace("remind me to", "", ignoreCase = true).trim()
+        if (text.startsWith(":")) text = text.substring(1).trim()
 
-        if (lower.startsWith("todo:")) {
-            val text = raw.substringAfter(":").trim()
-            return if (text.isBlank()) null else ParsedCommand(CommandType.TODO, text)
-        }
-
-        return null
+        return ParsedCommand(CommandType.TASK, text, timestamp, recurrence)
     }
 
     private fun parseTime(timeStr: String): Long? {
-        if (timeStr.isBlank()) return null
-        val cleaned = timeStr.lowercase().replace(" ", "")
+        val cleaned = timeStr.replace(" ", "")
         val hour = when {
-            cleaned.endsWith("pm") -> {
-                val h = cleaned.removeSuffix("pm").toIntOrNull() ?: return null
-                if (h < 12) h + 12 else h
-            }
-            cleaned.endsWith("am") -> {
-                val h = cleaned.removeSuffix("am").toIntOrNull() ?: return null
-                if (h == 12) 0 else h
-            }
-            else -> {
-                cleaned.substringBefore(":").toIntOrNull() ?: return null
-            }
+            cleaned.endsWith("pm") -> (cleaned.removeSuffix("pm").toIntOrNull() ?: return null).let { if (it < 12) it + 12 else it }
+            cleaned.endsWith("am") -> (cleaned.removeSuffix("am").toIntOrNull() ?: return null).let { if (it == 12) 0 else it }
+            else -> return null
         }
-        val minute = cleaned.substringAfter(":", "0").toIntOrNull() ?: 0
-
         val cal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
+            set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
-            if (timeInMillis < System.currentTimeMillis()) {
-                add(Calendar.DAY_OF_MONTH, 1) 
-            }
+            if (timeInMillis < System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
         }
         return cal.timeInMillis
     }
