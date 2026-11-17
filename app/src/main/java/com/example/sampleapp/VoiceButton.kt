@@ -5,12 +5,10 @@ import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 import com.example.sampleapp.ui.CozyTheme
 import java.util.Locale
 
@@ -35,10 +33,6 @@ fun VoiceButton(onResult: (String) -> Unit) {
         }
         launcher.launch(intent)
     }) {
-        Icon(
-            imageVector = Icons.Default.Mic,
-            contentDescription = "Speak",
-            tint = CozyTheme.Primary
-        )
+        Text(text = "🎤", fontSize = 24.sp)
     }
 }
