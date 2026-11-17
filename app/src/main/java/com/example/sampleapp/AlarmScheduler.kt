@@ -3,6 +3,7 @@ package com.example.sampleapp
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 
 object AlarmScheduler {
@@ -24,10 +25,14 @@ object AlarmScheduler {
 
     fun showNotification(context: Context, text: String, id: Int) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
-            "reminders", "Reminders", NotificationManager.IMPORTANCE_HIGH
-        )
-        manager.createNotificationChannel(channel)
+        
+        // This safety check prevents crashes on older Android versions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "reminders", "Reminders", NotificationManager.IMPORTANCE_HIGH
+            )
+            manager.createNotificationChannel(channel)
+        }
 
         val notification = NotificationCompat.Builder(context, "reminders")
             .setContentTitle("Reminder")
