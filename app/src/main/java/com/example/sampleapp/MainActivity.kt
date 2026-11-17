@@ -1,5 +1,7 @@
 package com.example.sampleapp
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -29,6 +32,10 @@ import com.example.sampleapp.data.RewardEntity
 import com.example.sampleapp.data.TaskEntity
 import com.example.sampleapp.ui.CozyTheme
 import com.example.sampleapp.ui.CommandViewModel
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +54,6 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
     var inputText by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     
-    // Popup states
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var showShopScreen by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<TaskEntity?>(null) }
@@ -72,7 +78,6 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
-            // INPUT AREA
             Card(colors = CardDefaults.cardColors(containerColor = CozyTheme.Surface), shape = RoundedCornerShape(CozyTheme.CornerRadius)) {
                 Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = inputText, onValueChange = { inputText = it }, placeholder = { Text("Type a task...", color = CozyTheme.TextPrimary.copy(alpha = 0.5f)) }, modifier = Modifier.weight(1f), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent))
@@ -101,7 +106,12 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
                 }
                 if (completedTasks.isNotEmpty()) {
                     item {
-                        Text("Completed", modifier = Modifier.padding(top = 16.dp, bottom = 8.dp), color = CozyTheme.Primary, fontWeight = FontWeight.Bold)
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Completed", color = CozyTheme.Primary, fontWeight = FontWeight.Bold)
+                            TextButton(onClick = { viewModel.clearCompletedTasks() }) {
+                                Text("Clear All", color = Color.Gray, fontSize = 12.sp)
+                            }
+                        }
                     }
                     items(completedTasks) { task ->
                         TaskCard(task, onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = { taskToEdit = task })
@@ -111,10 +121,13 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
         }
     }
 
-    // EDIT / RESCHEDULE DIALOG
+    // EDIT / RESCHEDULE DIALOG WITH DATE/TIME PICKER
     taskToEdit?.let { task ->
+        val context = LocalContext.current
         var editTitle by remember { mutableStateOf(task.title) }
         var editRecurrence by remember { mutableStateOf(task.recurrence) }
+        var editTimestamp by remember { mutableStateOf(task.timestamp) }
+
         AlertDialog(
             onDismissRequest = { taskToEdit = null },
             containerColor = CozyTheme.Surface,
@@ -123,16 +136,40 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
                 Column {
                     OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text("Task Name") })
                     Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // DATE/TIME PICKER BUTTON
+                    val dateString = if (editTimestamp != null) SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(editTimestamp!!)) else "No Alarm Set"
+                    Button(onClick = {
+                        val cal = Calendar.getInstance()
+                        if (editTimestamp != null) cal.timeInMillis = editTimestamp!!
+                        DatePickerDialog(context, { _, year, month, day ->
+                            cal.set(Calendar.YEAR, year)
+                            cal.set(Calendar.MONTH, month)
+                            cal.set(Calendar.DAY_OF_MONTH, day)
+                            TimePickerDialog(context, { _, hour, minute ->
+                                cal.set(Calendar.HOUR_OF_DAY, hour)
+                                cal.set(Calendar.MINUTE, minute)
+                                editTimestamp = cal.timeInMillis
+                            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
+                        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+                    }, colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Accent)) {
+                        Text("🕒 $dateString", color = CozyTheme.TextPrimary)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text("Repeat:", color = CozyTheme.TextPrimary)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("None", "Daily", "Weekly", "Monthly").forEach { rec ->
-                            FilterChip(selected = editRecurrence == rec, onClick = { editRecurrence = rec }, label = { Text(rec) })
+                            FilterChip(selected = editRecurrence == rec, onClick = { editRecurrence = rec }, label = { Text(rec, fontSize = 12.sp) })
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.updateTaskDetails(task, editTitle, editRecurrence); taskToEdit = null }) { Text("Save", color = CozyTheme.Primary) }
+                TextButton(onClick = { 
+                    viewModel.updateTaskDetails(task, editTitle, editRecurrence, editTimestamp)
+                    taskToEdit = null 
+                }) { Text("Save", color = CozyTheme.Primary) }
             }
         )
     }
@@ -225,6 +262,10 @@ fun TaskCard(task: TaskEntity, onToggle: () -> Unit, onDelete: () -> Unit, onEdi
                 Row {
                     Text(task.category, fontSize = 12.sp, color = CozyTheme.Primary)
                     if (task.recurrence != "None") Text(" • 🔄 ${task.recurrence}", fontSize = 12.sp, color = CozyTheme.Primary)
+                }
+                // Show time if it exists
+                if (task.timestamp != null) {
+                    Text(SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(task.timestamp)), fontSize = 12.sp, color = Color.Gray)
                 }
             }
             IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit", tint = CozyTheme.Primary) }
