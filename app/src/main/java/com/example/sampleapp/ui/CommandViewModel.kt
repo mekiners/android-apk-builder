@@ -26,10 +26,10 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             categories.collect { list ->
                 if (list.isEmpty()) {
-                    db.categoryDao().insertCategory(CategoryEntity("To Do", "📝"))
-                    db.categoryDao().insertCategory(CategoryEntity("To Buy", "🛒"))
-                    db.categoryDao().insertCategory(CategoryEntity("To Make", "🛠️"))
-                    db.categoryDao().insertCategory(CategoryEntity("Work", "💼"))
+                    db.categoryDao().insertCategory(CategoryEntity("To Do", "📝", "#FFFDF5"))
+                    db.categoryDao().insertCategory(CategoryEntity("To Buy", "🛒", "#E5F0FF"))
+                    db.categoryDao().insertCategory(CategoryEntity("To Make", "🛠️", "#FFF0E5"))
+                    db.categoryDao().insertCategory(CategoryEntity("Work", "💼", "#E5FFE5"))
                 }
             }
         }
@@ -56,7 +56,6 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
             if (task.timestamp != null) {
                 AlarmScheduler.schedule(getApplication(), task.timestamp, task.title, task.id.toInt())
             }
-            Toast.makeText(getApplication(), "Added to $categoryName", Toast.LENGTH_SHORT).show()
             refreshWidget() 
         }
     }
@@ -110,15 +109,15 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addCategory(name: String, icon: String) {
-        viewModelScope.launch { db.categoryDao().insertCategory(CategoryEntity(name, icon)) }
+    // Updated to accept colorHex
+    fun addCategory(name: String, icon: String, colorHex: String) {
+        viewModelScope.launch { db.categoryDao().insertCategory(CategoryEntity(name, icon, colorHex)) }
     }
 
     fun addReward(title: String, cost: Int) {
         viewModelScope.launch { db.rewardDao().insertReward(RewardEntity(title = title, cost = cost)) }
     }
 
-    // NEW: Delete Reward Function
     fun deleteReward(reward: RewardEntity) {
         viewModelScope.launch { db.rewardDao().deleteReward(reward) }
     }
