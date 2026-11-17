@@ -1,11 +1,15 @@
 package com.example.sampleapp.ui
 
 import android.app.Application
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sampleapp.AlarmScheduler
 import com.example.sampleapp.CommandParser
+import com.example.sampleapp.CozyWidget
 import com.example.sampleapp.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -33,6 +37,15 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // NEW: Helper function to tell the widget to refresh
+    private fun refreshWidget() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, CozyWidget::class.java).apply {
+            action = "ACTION_REFRESH_WIDGET"
+        }
+        context.sendBroadcast(intent)
+    }
+
     fun addTask(rawText: String, categoryName: String) {
         if (rawText.isBlank()) return
         val parsed = CommandParser.parse(rawText)
@@ -49,6 +62,7 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
                 AlarmScheduler.schedule(getApplication(), task.timestamp, task.title, task.id.toInt())
             }
             Toast.makeText(getApplication(), "Added to $categoryName", Toast.LENGTH_SHORT).show()
+            refreshWidget() // NEW: Trigger widget update
         }
     }
 
@@ -72,24 +86,28 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
                     db.userDao().updateUser(currentUser.copy(coins = currentUser.coins - 1))
                 }
             }
+            refreshWidget() // NEW: Trigger widget update
         }
     }
 
     fun updateTaskDetails(task: TaskEntity, newTitle: String, newRecurrence: String) {
         viewModelScope.launch {
             db.taskDao().updateTask(task.copy(title = newTitle, recurrence = newRecurrence))
+            refreshWidget() // NEW: Trigger widget update
         }
     }
 
     fun deleteTask(task: TaskEntity) {
-        viewModelScope.launch { db.taskDao().deleteTask(task) }
+        viewModelScope.launch { 
+            db.taskDao().deleteTask(task)
+            refreshWidget() // NEW: Trigger widget update
+        }
     }
 
     fun addCategory(name: String, icon: String) {
         viewModelScope.launch { db.categoryDao().insertCategory(CategoryEntity(name, icon)) }
     }
 
-    // --- SHOP FUNCTIONS ---
     fun addReward(title: String, cost: Int) {
         viewModelScope.launch { db.rewardDao().insertReward(RewardEntity(title = title, cost = cost)) }
     }
