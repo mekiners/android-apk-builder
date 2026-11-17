@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +33,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sampleapp.data.RewardEntity
 import com.example.sampleapp.data.TaskEntity
 import com.example.sampleapp.ui.CozyTheme
+import com.example.sampleapp.ui.CozyTypography
 import com.example.sampleapp.ui.CommandViewModel
+import com.example.sampleapp.ui.PastelColors
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -41,7 +45,11 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { CozyAssistantApp() } }
+        setContent { 
+            MaterialTheme(typography = CozyTypography) { 
+                CozyAssistantApp() 
+            } 
+        }
     }
 }
 
@@ -52,81 +60,57 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
     val user by viewModel.user.collectAsState()
     val rewards by viewModel.rewards.collectAsState()
 
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var currentScreen by remember { mutableStateOf("dashboard") } // dashboard, grocery, shop
+
     var inputText by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
-    
     var showAddCategoryDialog by remember { mutableStateOf(false) }
-    var showShopScreen by remember { mutableStateOf(false) }
     var taskToEdit by remember { mutableStateOf<TaskEntity?>(null) }
 
-    if (showShopScreen) {
-        ShopScreen(rewards, user?.coins ?: 0, onBack = { showShopScreen = false }, onAddReward = viewModel::addReward, onClaim = viewModel::claimReward, onDeleteReward = viewModel::deleteReward)
-        return
-    }
-
-    Scaffold(
-        containerColor = CozyTheme.Background,
-        topBar = {
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("🐻 Cozy Assistant", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CozyTheme.TextPrimary)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { showShopScreen = true }) { Icon(Icons.Default.ShoppingCart, contentDescription = "Shop", tint = CozyTheme.Primary) }
-                    Surface(shape = RoundedCornerShape(20.dp), color = CozyTheme.Accent) {
-                        Text("🪙 ${user?.coins ?: 0}", modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = CozyTheme.TextPrimary, fontWeight = FontWeight.Bold)
-                    }
-                }
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(drawerContainerColor = CozyTheme.Background) {
+                Spacer(Modifier.height(24.dp))
+                Text("🐻 Cozy Assistant", modifier = Modifier.padding(16.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CozyTheme.TextPrimary)
+                Divider(color = CozyTheme.Accent, modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(Modifier.height(8.dp))
+                
+                NavigationDrawerItem(label = { Text("🏠 Dashboard") }, selected = currentScreen == "dashboard", onClick = { currentScreen = "dashboard"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = CozyTheme.Accent))
+                NavigationDrawerItem(label = { Text("🛒 Grocery List") }, selected = currentScreen == "grocery", onClick = { currentScreen = "grocery"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = CozyTheme.Accent))
+                NavigationDrawerItem(label = { Text("🎁 Rewards Shop") }, selected = currentScreen == "shop", onClick = { currentScreen = "shop"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = CozyTheme.Accent))
             }
         }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
-            Card(colors = CardDefaults.cardColors(containerColor = CozyTheme.Surface), shape = RoundedCornerShape(CozyTheme.CornerRadius)) {
-                Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = inputText, onValueChange = { inputText = it }, placeholder = { Text("Type a task...", color = CozyTheme.TextPrimary.copy(alpha = 0.5f)) }, modifier = Modifier.weight(1f), colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent))
-                    VoiceButton { spoken -> inputText = spoken }
-                    IconButton(onClick = { val cat = if (selectedCategory == "All") "To Do" else selectedCategory; viewModel.addTask(inputText, cat); inputText = "" }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add", tint = CozyTheme.Primary)
+    ) {
+        Scaffold(
+            containerColor = CozyTheme.Background,
+            topBar = {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = CozyTheme.Primary)
+                    }
+                    Text(
+                        text = when(currentScreen) {
+                            "dashboard" -> "Dashboard"
+                            "grocery" -> "Grocery List"
+                            "shop" -> "Rewards Shop"
+                            else -> "Cozy Assistant"
+                        }, 
+                        fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CozyTheme.TextPrimary, modifier = Modifier.weight(1f)
+                    )
+                    Surface(shape = RoundedCornerShape(20.dp), color = CozyTheme.Accent) {
+                        Text("🪙 ${user?.coins ?: 0}", modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = CozyTheme.TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { CategoryChip("All", selectedCategory == "All") { selectedCategory = "All" } }
-                items(categories) { cat -> CategoryChip("${cat.icon} ${cat.name}", selectedCategory == cat.name) { selectedCategory = cat.name } }
-                item { IconButton(onClick = { showAddCategoryDialog = true }, modifier = Modifier.background(CozyTheme.Accent, RoundedCornerShape(50))) { Icon(Icons.Default.Add, contentDescription = "Add Category", tint = CozyTheme.TextPrimary) } }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            val filteredTasks = if (selectedCategory == "All") tasks else tasks.filter { it.category == selectedCategory }
-            val pendingTasks = filteredTasks.filter { !it.isCompleted }
-            val completedTasks = filteredTasks.filter { it.isCompleted }
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                
-                // NEW: Empty State Message
-                if (pendingTasks.isEmpty() && completedTasks.isEmpty()) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Nothing here! Time for a cozy break ☕", color = CozyTheme.Primary, fontSize = 16.sp, textAlign = TextAlign.Center)
-                        }
-                    }
-                }
-
-                items(pendingTasks) { task ->
-                    TaskCard(task, onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = { taskToEdit = task })
-                }
-                if (completedTasks.isNotEmpty()) {
-                    item {
-                        Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Completed", color = CozyTheme.Primary, fontWeight = FontWeight.Bold)
-                            TextButton(onClick = { viewModel.clearCompletedTasks() }) {
-                                Text("Clear All", color = Color.Gray, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                    items(completedTasks) { task ->
-                        TaskCard(task, onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = { taskToEdit = task })
-                    }
+        ) { padding ->
+            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+                when (currentScreen) {
+                    "dashboard" -> DashboardScreen(tasks, categories, selectedCategory, { selectedCategory = it }, inputText, { inputText = it }, viewModel, { showAddCategoryDialog = true }, { taskToEdit = it })
+                    "grocery" -> GroceryScreen(tasks, inputText, { inputText = it }, viewModel)
+                    "shop" -> ShopScreen(rewards, user?.coins ?: 0, viewModel)
                 }
             }
         }
@@ -142,11 +126,11 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
         AlertDialog(
             onDismissRequest = { taskToEdit = null },
             containerColor = CozyTheme.Surface,
-            title = { Text("Edit Task", color = CozyTheme.TextPrimary) },
+            title = { Text("Edit Task", color = CozyTheme.TextPrimary, fontSize = 18.sp) },
             text = {
                 Column {
-                    OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text("Task Name") })
-                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text("Task Name") }, textStyle = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(12.dp))
                     
                     val dateString = if (editTimestamp != null) SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(editTimestamp!!)) else "No Alarm Set"
                     Button(onClick = {
@@ -163,14 +147,14 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
                             }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
                         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
                     }, colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Accent)) {
-                        Text("🕒 $dateString", color = CozyTheme.TextPrimary)
+                        Text("🕒 $dateString", color = CozyTheme.TextPrimary, fontSize = 14.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Repeat:", color = CozyTheme.TextPrimary)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Repeat:", color = CozyTheme.TextPrimary, fontSize = 14.sp)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("None", "Daily", "Weekly", "Monthly").forEach { rec ->
-                            FilterChip(selected = editRecurrence == rec, onClick = { editRecurrence = rec }, label = { Text(rec, fontSize = 12.sp) })
+                            FilterChip(selected = editRecurrence == rec, onClick = { editRecurrence = rec }, label = { Text(rec, fontSize = 11.sp) })
                         }
                     }
                 }
@@ -184,105 +168,179 @@ fun CozyAssistantApp(viewModel: CommandViewModel = viewModel()) {
         )
     }
 
-    // ADD CATEGORY DIALOG
+    // ADD CATEGORY DIALOG (NOW WITH COLORS!)
     if (showAddCategoryDialog) {
         var newCatName by remember { mutableStateOf("") }
         var newCatIcon by remember { mutableStateOf("📌") }
+        var selectedColor by remember { mutableStateOf(PastelColors[0]) }
+        
         AlertDialog(
             onDismissRequest = { showAddCategoryDialog = false },
             containerColor = CozyTheme.Surface,
-            title = { Text("New Category", color = CozyTheme.TextPrimary) },
+            title = { Text("New Category", color = CozyTheme.TextPrimary, fontSize = 18.sp) },
             text = {
                 Column {
-                    OutlinedTextField(value = newCatName, onValueChange = { newCatName = it }, label = { Text("Name") })
+                    OutlinedTextField(value = newCatName, onValueChange = { newCatName = it }, label = { Text("Name") }, textStyle = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newCatIcon, onValueChange = { if(it.length <= 2) newCatIcon = it }, label = { Text("Emoji") })
+                    OutlinedTextField(value = newCatIcon, onValueChange = { if(it.length <= 2) newCatIcon = it }, label = { Text("Emoji") }, textStyle = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Choose a Color:", fontSize = 14.sp, color = CozyTheme.TextPrimary)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(PastelColors) { hex ->
+                            val color = Color(android.graphics.Color.parseColor(hex))
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(color, RoundedCornerShape(16.dp))
+                                    .clickable { selectedColor = hex }
+                                    .then(if (selectedColor == hex) Modifier.padding(2.dp) else Modifier)
+                            )
+                        }
+                    }
                 }
             },
-            confirmButton = { TextButton(onClick = { if (newCatName.isNotBlank()) viewModel.addCategory(newCatName, newCatIcon); showAddCategoryDialog = false }) { Text("Add", color = CozyTheme.Primary) } }
+            confirmButton = { TextButton(onClick = { if (newCatName.isNotBlank()) viewModel.addCategory(newCatName, newCatIcon, selectedColor); showAddCategoryDialog = false }) { Text("Add", color = CozyTheme.Primary) } }
         )
     }
 }
 
 @Composable
-fun ShopScreen(rewards: List<RewardEntity>, currentCoins: Int, onBack: () -> Unit, onAddReward: (String, Int) -> Unit, onClaim: (RewardEntity) -> Unit, onDeleteReward: (RewardEntity) -> Unit) {
-    var showAddDialog by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.fillMaxSize().background(CozyTheme.Background).padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("⬅️ Back", color = CozyTheme.Primary) }
-            Spacer(modifier = Modifier.weight(1f))
-            Text("🪙 $currentCoins", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = CozyTheme.TextPrimary)
+fun DashboardScreen(tasks: List<TaskEntity>, categories: List<com.example.sampleapp.data.CategoryEntity>, selectedCategory: String, onCategorySelect: (String) -> Unit, inputText: String, onInputChange: (String) -> Unit, viewModel: CommandViewModel, onAddCategoryClick: () -> Unit, onEditTask: (TaskEntity) -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        // Input Area
+        Card(colors = CardDefaults.cardColors(containerColor = CozyTheme.Surface), shape = RoundedCornerShape(CozyTheme.CornerRadius)) {
+            Row(modifier = Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = inputText, 
+                    onValueChange = onInputChange, 
+                    placeholder = { Text("Type a task...", fontSize = 14.sp, color = CozyTheme.TextPrimary.copy(alpha = 0.5f)) }, 
+                    modifier = Modifier.weight(1f), 
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color.Transparent, focusedBorderColor = Color.Transparent)
+                )
+                VoiceButton { spoken -> onInputChange(spoken) }
+                IconButton(onClick = { val cat = if (selectedCategory == "All") "To Do" else selectedCategory; viewModel.addTask(inputText, cat); onInputChange("") }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add", tint = CozyTheme.Primary)
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("🎁 Rewards Shop", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CozyTheme.TextPrimary)
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.height(12.dp))
         
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Category Tabs
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            item { CategoryChip("All", selectedCategory == "All") { onCategorySelect("All") } }
+            items(categories) { cat -> CategoryChip("${cat.icon} ${cat.name}", selectedCategory == cat.name) { onCategorySelect(cat.name) } }
+            item { IconButton(onClick = onAddCategoryClick, modifier = Modifier.background(CozyTheme.Accent, RoundedCornerShape(50)).size(36.dp)) { Icon(Icons.Default.Add, contentDescription = "Add Category", tint = CozyTheme.TextPrimary) } }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        val filteredTasks = if (selectedCategory == "All") tasks else tasks.filter { it.category == selectedCategory }
+        val pendingTasks = filteredTasks.filter { !it.isCompleted }
+        val completedTasks = filteredTasks.filter { it.isCompleted }
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (pendingTasks.isEmpty() && completedTasks.isEmpty()) {
+                item { Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { Text("Nothing here! Time for a cozy break ☕", color = CozyTheme.Primary, fontSize = 15.sp, textAlign = TextAlign.Center) } }
+            }
+
+            items(pendingTasks) { task ->
+                val catColor = categories.find { it.name == task.category }?.colorHex ?: "#FFFDF5"
+                TaskCard(task, catColor, onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = { onEditTask(task) })
+            }
+            if (completedTasks.isNotEmpty()) {
+                item {
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Completed", color = CozyTheme.Primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        TextButton(onClick = { viewModel.clearCompletedTasks() }) { Text("Clear All", color = Color.Gray, fontSize = 12.sp) }
+                    }
+                }
+                items(completedTasks) { task ->
+                    val catColor = categories.find { it.name == task.category }?.colorHex ?: "#FFFDF5"
+                    TaskCard(task, catColor, onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = { onEditTask(task) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GroceryScreen(tasks: List<TaskEntity>, inputText: String, onInputChange: (String) -> Unit, viewModel: CommandViewModel) {
+    val groceryTasks = tasks.filter { it.category.equals("To Buy", ignoreCase = true) }
+    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = CozyTheme.Surface), shape = RoundedCornerShape(CozyTheme.CornerRadius)) {
+            Row(modifier = Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(value = inputText, onValueChange = onInputChange, placeholder = { Text("Add grocery item...", fontSize = 14.sp) }, modifier = Modifier.weight(1f), textStyle = MaterialTheme.typography.bodyLarge)
+                IconButton(onClick = { viewModel.addTask(inputText, "To Buy"); onInputChange("") }) { Icon(Icons.Default.Add, contentDescription = "Add", tint = CozyTheme.Primary) }
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(groceryTasks) { task ->
+                TaskCard(task, "#E5F0FF", onToggle = { viewModel.toggleTaskCompletion(task) }, onDelete = { viewModel.deleteTask(task) }, onEdit = {})
+            }
+        }
+    }
+}
+
+@Composable
+fun ShopScreen(rewards: List<RewardEntity>, currentCoins: Int, viewModel: CommandViewModel) {
+    var showAddDialog by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rewards) { reward ->
                 Card(colors = CardDefaults.cardColors(containerColor = CozyTheme.Surface), shape = RoundedCornerShape(CozyTheme.CornerRadius)) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(reward.title, modifier = Modifier.weight(1f), color = CozyTheme.TextPrimary)
-                        Text("${reward.cost} 🪙", color = CozyTheme.TextPrimary)
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(reward.title, modifier = Modifier.weight(1f), color = CozyTheme.TextPrimary, fontSize = 15.sp)
+                        Text("${reward.cost} 🪙", color = CozyTheme.TextPrimary, fontSize = 14.sp)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Button(onClick = { onClaim(reward) }, colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Primary)) {
-                            Text("Claim")
-                        }
-                        // NEW: Delete Reward Button
-                        IconButton(onClick = { onDeleteReward(reward) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray)
-                        }
+                        Button(onClick = { viewModel.claimReward(reward) }, colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Primary)) { Text("Claim", fontSize = 13.sp) }
+                        IconButton(onClick = { viewModel.deleteReward(reward) }) { Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray) }
                     }
                 }
             }
         }
-        
         Spacer(modifier = Modifier.weight(1f))
-        Button(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Accent)) {
-            Text("+ Add Custom Reward", color = CozyTheme.TextPrimary)
-        }
+        Button(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = CozyTheme.Accent)) { Text("+ Add Custom Reward", color = CozyTheme.TextPrimary, fontSize = 14.sp) }
     }
-
+    
     if (showAddDialog) {
         var title by remember { mutableStateOf("") }
         var cost by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            containerColor = CozyTheme.Surface,
-            title = { Text("New Reward") },
-            text = { Column {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Reward (e.g., Ice Cream)") })
-                OutlinedTextField(value = cost, onValueChange = { cost = it }, label = { Text("Cost (Coins)") })
-            } },
-            confirmButton = { TextButton(onClick = { if (title.isNotBlank() && cost.toIntOrNull() != null) onAddReward(title, cost.toInt()); showAddDialog = false }) { Text("Add") } }
-        )
+        AlertDialog(onDismissRequest = { showAddDialog = false }, containerColor = CozyTheme.Surface, title = { Text("New Reward") }, text = { Column {
+            OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Reward") })
+            OutlinedTextField(value = cost, onValueChange = { cost = it }, label = { Text("Cost") })
+        } }, confirmButton = { TextButton(onClick = { if (title.isNotBlank() && cost.toIntOrNull() != null) viewModel.addReward(title, cost.toInt()); showAddDialog = false }) { Text("Add") } })
     }
 }
 
 @Composable
 fun CategoryChip(text: String, isSelected: Boolean, onClick: () -> Unit) {
     Surface(shape = RoundedCornerShape(50), color = if (isSelected) CozyTheme.Primary else CozyTheme.Surface, modifier = Modifier.clickable { onClick() }) {
-        Text(text = text, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = if (isSelected) Color.White else CozyTheme.TextPrimary)
+        Text(text = text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), color = if (isSelected) Color.White else CozyTheme.TextPrimary, fontSize = 13.sp)
     }
 }
 
 @Composable
-fun TaskCard(task: TaskEntity, onToggle: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = CozyTheme.Surface), shape = RoundedCornerShape(CozyTheme.CornerRadius), modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+fun TaskCard(task: TaskEntity, colorHex: String, onToggle: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit) {
+    val bgColor = Color(android.graphics.Color.parseColor(colorHex))
+    
+    Card(colors = CardDefaults.cardColors(containerColor = bgColor), shape = RoundedCornerShape(CozyTheme.CornerRadius), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = task.isCompleted, onCheckedChange = { onToggle() }, colors = CheckboxDefaults.colors(checkedColor = CozyTheme.Primary))
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(4.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(task.title, fontSize = 16.sp, color = CozyTheme.TextPrimary, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None)
+                Text(task.title, fontSize = 14.sp, color = CozyTheme.TextPrimary, textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None)
                 Row {
-                    Text(task.category, fontSize = 12.sp, color = CozyTheme.Primary)
-                    if (task.recurrence != "None") Text(" • 🔄 ${task.recurrence}", fontSize = 12.sp, color = CozyTheme.Primary)
-                }
-                if (task.timestamp != null) {
-                    Text(SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(task.timestamp)), fontSize = 12.sp, color = Color.Gray)
+                    Text(task.category, fontSize = 11.sp, color = CozyTheme.Primary.copy(alpha = 0.8f))
+                    if (task.recurrence != "None") Text(" • 🔄 ${task.recurrence}", fontSize = 11.sp, color = CozyTheme.Primary.copy(alpha = 0.8f))
+                    if (task.timestamp != null) Text(" • " + SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(task.timestamp)), fontSize = 11.sp, color = Color.Gray)
                 }
             }
-            IconButton(onClick = onEdit) { Icon(Icons.Default.Edit, contentDescription = "Edit", tint = CozyTheme.Primary) }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray) }
+            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Edit, contentDescription = "Edit", tint = CozyTheme.Primary, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray, modifier = Modifier.size(18.dp)) }
         }
     }
 }
