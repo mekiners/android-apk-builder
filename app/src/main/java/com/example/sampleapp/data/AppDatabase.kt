@@ -44,7 +44,6 @@ interface TaskDao {
     suspend fun updateTask(task: TaskEntity)
     @Delete
     suspend fun deleteTask(task: TaskEntity)
-    // NEW: Delete all completed tasks
     @Query("DELETE FROM tasks WHERE isCompleted = 1")
     suspend fun deleteCompletedTasks()
 }
@@ -71,4 +70,7 @@ interface RewardDao {
     fun getAllRewards(): Flow<List<RewardEntity>>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReward(reward: RewardEntity)
+    // NEW: Delete reward
+    @Delete
+    suspend fun deleteReward(reward: RewardEntity) 
 }
