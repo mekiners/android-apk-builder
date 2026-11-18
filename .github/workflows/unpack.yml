@@ -1,0 +1,25 @@
+name: Unpack zip
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack
+        run: |
+          set -e
+          unzip -q -o cozy-assistant-stardew.zip -d /tmp/unz
+          SRC=$(find /tmp/unz -maxdepth 1 -mindepth 1 -type d | head -n 1)
+          rm -rf app
+          cp -r "$SRC"/app ./app
+          rm -f cozy-assistant-stardew.zip
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Unpack Stardew app" || echo "nothing to commit"
+          git push
