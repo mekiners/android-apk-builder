@@ -9,7 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
-import com.example.sampleapp.ui.CozyTheme
+import com.example.sampleapp.ui.StardewWoodPrimary // Changed import
 import java.util.Locale
 
 @Composable
@@ -33,6 +33,7 @@ fun VoiceButton(onResult: (String) -> Unit) {
         }
         launcher.launch(intent)
     }) {
-        Text(text = "🎤", fontSize = 24.sp)
+        // Changed color to match Stardew theme
+        Text(text = "🎤", fontSize = 24.sp, color = StardewWoodPrimary) 
     }
 }
