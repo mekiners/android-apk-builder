@@ -84,17 +84,6 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun updateTaskDetails(task: TaskEntity, newTitle: String, newRecurrence: String, newTimestamp: Long?) {
-        viewModelScope.launch {
-            val updated = task.copy(title = newTitle, recurrence = newRecurrence, timestamp = newTimestamp)
-            db.taskDao().updateTask(updated)
-            if (newTimestamp != null) {
-                AlarmScheduler.schedule(getApplication(), newTimestamp, newTitle, task.id.toInt())
-            }
-            refreshWidget() 
-        }
-    }
-
     fun deleteTask(task: TaskEntity) {
         viewModelScope.launch { 
             db.taskDao().deleteTask(task)
@@ -102,14 +91,6 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun clearCompletedTasks() {
-        viewModelScope.launch {
-            db.taskDao().deleteCompletedTasks()
-            refreshWidget()
-        }
-    }
-
-    // Updated to accept colorHex
     fun addCategory(name: String, icon: String, colorHex: String) {
         viewModelScope.launch { db.categoryDao().insertCategory(CategoryEntity(name, icon, colorHex)) }
     }
@@ -139,9 +120,7 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         when (recurrence) {
             "Daily" -> cal.add(Calendar.DAY_OF_YEAR, 1)
             "Weekly" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
-            "Bi-weekly" -> cal.add(Calendar.WEEK_OF_YEAR, 2)
             "Monthly" -> cal.add(Calendar.MONTH, 1)
-            "Yearly" -> cal.add(Calendar.YEAR, 1)
         }
         return cal.timeInMillis
     }
