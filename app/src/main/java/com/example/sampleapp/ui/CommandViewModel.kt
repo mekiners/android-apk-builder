@@ -1,5 +1,6 @@
 package com.example.sampleapp.ui
 
+// ... (Keep all your imports exactly the same) ...
 import android.app.Application
 import android.content.Intent
 import android.widget.Toast
@@ -17,10 +18,14 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
 
     private val db = AppDatabase.getDatabase(application)
     
+    // ... (Keep tasks, categories, user, rewards) ...
     val tasks = db.taskDao().getAllTasks().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val categories = db.categoryDao().getAllCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val user = db.userDao().getUser().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserEntity())
     val rewards = db.rewardDao().getAllRewards().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    // NEW: Shifts flow
+    val shifts = db.shiftDao().getAllShifts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -35,6 +40,7 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // ... (Keep refreshWidget, addTask, toggleTaskCompletion, deleteTask, addCategory, rewards) ...
     private fun refreshWidget() {
         val context = getApplication<Application>()
         val intent = Intent(context, CozyWidget::class.java).apply { action = "ACTION_REFRESH_WIDGET" }
@@ -50,7 +56,6 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
             timestamp = parsed?.timestamp,
             recurrence = parsed?.recurrence ?: "None"
         )
-
         viewModelScope.launch {
             db.taskDao().insertTask(task)
             if (task.timestamp != null) {
@@ -64,11 +69,9 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val updatedTask = task.copy(isCompleted = !task.isCompleted)
             db.taskDao().updateTask(updatedTask)
-
             if (updatedTask.isCompleted) {
                 val currentUser = user.value ?: UserEntity()
                 db.userDao().updateUser(currentUser.copy(coins = currentUser.coins + 1))
-                
                 if (task.recurrence != "None" && task.timestamp != null) {
                     val nextTimestamp = calculateNextDate(task.timestamp, task.recurrence)
                     val nextTask = task.copy(id = 0, isCompleted = false, timestamp = nextTimestamp)
@@ -85,10 +88,7 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun deleteTask(task: TaskEntity) {
-        viewModelScope.launch { 
-            db.taskDao().deleteTask(task)
-            refreshWidget() 
-        }
+        viewModelScope.launch { db.taskDao().deleteTask(task); refreshWidget() }
     }
 
     fun addCategory(name: String, icon: String, colorHex: String) {
@@ -123,5 +123,18 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
             "Monthly" -> cal.add(Calendar.MONTH, 1)
         }
         return cal.timeInMillis
+    }
+
+    // NEW: Update Shift Function
+    fun updateShift(dateString: String, shiftIndex: Int, newStatus: String) {
+        viewModelScope.launch {
+            val existing = shifts.value.find { it.date == dateString } ?: ShiftEntity(date = dateString)
+            val updated = when (shiftIndex) {
+                0 -> existing.copy(morning = newStatus)
+                1 -> existing.copy(evening = newStatus)
+                else -> existing.copy(night = newStatus)
+            }
+            db.shiftDao().insertShift(updated)
+        }
     }
 }
