@@ -1,4 +1,4 @@
-package com.example.cozyassistant
+package com.example.sampleapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -6,22 +6,14 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import com.example.cozyassistant.ui.screens.DashboardScreen
-import com.example.cozyassistant.ui.screens.ShiftAlmanacScreen
-import com.example.cozyassistant.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.sampleapp.ui.*
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -29,99 +21,93 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             StardewTheme {
-                CozyAppMain()
+                MainAppFrame()
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CozyAppMain() {
-    val navController = rememberNavController()
+fun MainAppFrame(viewModel: CommandViewModel = viewModel()) {
+    val tasks by viewModel.tasks.collectAsState()
+    val categories by viewModel.categories.collectAsState()
+    val user by viewModel.user.collectAsState()
+    val rewards by viewModel.rewards.collectAsState()
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-
-    // Fake coin balance for now (will connect to DB later)
-    var coinBalance by remember { mutableStateOf(150) }
+    
+    // Navigation state: Quests, Shifts, Market, Shop
+    var currentTab by remember { mutableStateOf("Quests") }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = StardewParchment,
-                drawerContentColor = StardewTextPrimary,
-                modifier = Modifier.width(280.dp)
-            ) {
-                // Sidebar Header
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(StardewWoodPrimary)
-                        .padding(16.dp)
+            ModalDrawerSheet(drawerContainerColor = StardewParchment) {
+                Spacer(Modifier.height(24.dp))
+                Text("🐻 Cozy Assistant", modifier = Modifier.padding(16.dp), style = StardewTypography.titleLarge)
+                Divider(color = StardewWoodHighlight, modifier = Modifier.padding(horizontal = 16.dp))
+                Spacer(Modifier.height(8.dp))
+                
+                NavigationDrawerItem(label = { Text("🌾 Quests") }, selected = currentTab == "Quests", onClick = { currentTab = "Quests"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = StardewParchmentDark))
+                NavigationDrawerItem(label = { Text("📅 Shift Almanac") }, selected = currentTab == "Shifts", onClick = { currentTab = "Shifts"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = StardewParchmentDark))
+                NavigationDrawerItem(label = { Text("🛒 Market List") }, selected = currentTab == "Market", onClick = { currentTab = "Market"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = StardewParchmentDark))
+                NavigationDrawerItem(label = { Text("🎁 Rewards Shop") }, selected = currentTab == "Shop", onClick = { currentTab = "Shop"; scope.launch { drawerState.close() } }, colors = NavigationDrawerItemDefaults.colors(selectedContainerColor = StardewParchmentDark))
+            }
+        }
+    ) {
+        Scaffold(
+            containerColor = StardewCanvasBg,
+            bottomBar = {
+                // Bottom Navigation Dock
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(StardewWoodPrimary).padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    Text("Cozy Assistant", style = StardewTypography.titleLarge, color = StardewParchment)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Sidebar Buttons
-                DrawerButton("Daily Quests") {
-                    navController.navigate("dashboard")
-                    scope.launch { drawerState.close() }
-                }
-                DrawerButton("Shift Almanac") {
-                    navController.navigate("almanac")
-                    scope.launch { drawerState.close() }
-                }
-                DrawerButton("Market List") {
-                    navController.navigate("market")
-                    scope.launch { drawerState.close() }
-                }
-                DrawerButton("Rewards Shop") {
-                    navController.navigate("rewards")
-                    scope.launch { drawerState.close() }
+                    listOf("Quests", "Shifts", "Market", "Shop").forEach { tab ->
+                        val isSelected = currentTab == tab
+                        Box(
+                            modifier = Modifier
+                                .background(if (isSelected) StardewGold else StardewWoodPrimary)
+                                .clickable { currentTab = tab }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = tab,
+                                style = StardewTypography.labelSmall,
+                                color = if (isSelected) StardewWoodDark else StardewParchment
+                            )
+                        }
+                    }
                 }
             }
-        }
-    ) {
-        // Main App Area
-        NavHost(navController = navController, startDestination = "dashboard") {
-            composable("dashboard") {
-                // We will build the full screen here later
-                PlaceholderScreen("Daily Quests", coinBalance) { scope.launch { drawerState.open() } }
+        ) { padding ->
+            Box(modifier = Modifier.padding(padding)) {
+                when (currentTab) {
+                    "Quests" -> DashboardScreen(
+                        tasks = tasks, categories = categories, coinBalance = user?.coins ?: 0,
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onAddTask = { text, cat -> viewModel.addTask(text, cat) },
+                        onVoiceInputClick = { /* Add voice intent later if needed */ },
+                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                        onEditTask = { /* Re-implement Edit Dialog if needed, omitted for brevity in this massive UI shift */ },
+                        onDeleteTask = { viewModel.deleteTask(it) }
+                    )
+                    "Shifts" -> ShiftAlmanacScreen(coinBalance = user?.coins ?: 0, onMenuClick = { scope.launch { drawerState.open() } })
+                    "Market" -> GroceryScreen(
+                        tasks = tasks, coinBalance = user?.coins ?: 0, onMenuClick = { scope.launch { drawerState.open() } },
+                        onAddTask = { text -> viewModel.addTask(text, "To Buy") },
+                        onToggleTask = { viewModel.toggleTaskCompletion(it) },
+                        onDeleteTask = { viewModel.deleteTask(it) }
+                    )
+                    "Shop" -> ShopScreen(
+                        rewards = rewards, coinBalance = user?.coins ?: 0, onMenuClick = { scope.launch { drawerState.open() } },
+                        onAddReward = { title, cost -> viewModel.addReward(title, cost) },
+                        onClaimReward = { viewModel.claimReward(it) },
+                        onDeleteReward = { viewModel.deleteReward(it) }
+                    )
+                }
             }
-            composable("almanac") {
-                PlaceholderScreen("Shift Almanac", coinBalance) { scope.launch { drawerState.open() } }
-            }
-            composable("market") {
-                PlaceholderScreen("Market List", coinBalance) { scope.launch { drawerState.open() } }
-            }
-            composable("rewards") {
-                PlaceholderScreen("Rewards Shop", coinBalance) { scope.launch { drawerState.open() } }
-            }
-        }
-    }
-}
-
-@Composable
-fun DrawerButton(text: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(16.dp)
-    ) {
-        Text(text, style = StardewTypography.titleMedium)
-    }
-}
-
-@Composable
-fun PlaceholderScreen(title: String, coins: Int, onMenuClick: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().background(StardewCanvasBg)) {
-        StardewWoodenBanner(title = title, coinBalance = coins, onMenuClick = onMenuClick)
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Build $title Here", style = StardewTypography.titleLarge)
         }
     }
 }
