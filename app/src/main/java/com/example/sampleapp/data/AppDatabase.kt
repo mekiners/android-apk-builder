@@ -7,12 +7,13 @@ import androidx.room.RoomDatabase
 import kotlinx.coroutines.flow.Flow
 import androidx.room.*
 
-@Database(entities = [TaskEntity::class, CategoryEntity::class, UserEntity::class, RewardEntity::class], version = 3, exportSchema = false)
+@Database(entities = [TaskEntity::class, CategoryEntity::class, UserEntity::class, RewardEntity::class, ShiftEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun categoryDao(): CategoryDao
     abstract fun userDao(): UserDao
     abstract fun rewardDao(): RewardDao
+    abstract fun shiftDao(): ShiftDao // NEW
 
     companion object {
         @Volatile
@@ -34,6 +35,7 @@ abstract class AppDatabase : RoomDatabase() {
     }
 }
 
+// ... (Keep TaskDao, CategoryDao, UserDao, RewardDao exactly as they are) ...
 @Dao
 interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY isCompleted ASC, timestamp ASC")
@@ -72,4 +74,13 @@ interface RewardDao {
     suspend fun insertReward(reward: RewardEntity)
     @Delete
     suspend fun deleteReward(reward: RewardEntity)
+}
+
+// NEW DAO
+@Dao
+interface ShiftDao {
+    @Query("SELECT * FROM shifts")
+    fun getAllShifts(): Flow<List<ShiftEntity>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShift(shift: ShiftEntity)
 }
