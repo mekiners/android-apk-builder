@@ -64,7 +64,8 @@ fun QuestCard(
     }
     val overlay: (DrawScope.(Float, Float, Int) -> Unit)? = when {
         task.gold >= 10 -> null
-        task.gold >= 5 -> null
+        // I disabled the old flat honey here
+        task.gold >= 5 -> null 
         else -> { w, h, _ ->
             // moss creeping in from the corners
             val ms = pxScale(2.dp)
@@ -72,48 +73,70 @@ fun QuestCard(
             drawPixels(tex.mossBr, w - tex.mossBr.width * ms - 6.dp.toPx(), h - tex.mossBr.height * ms - 6.dp.toPx(), ms)
         }
     }
+    
+    // We wrap the panel in a Box so we can stack the honey on top
     Box(modifier = Modifier.fillMaxWidth()) {
-        PanelBox(modifier = Modifier.fillMaxWidth().padding(top = if (task.gold >= 5 && task.gold < 10) 12.dp else 0.dp), look = look, contentPadding = 3.dp, overlay = overlay) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        PanelBox(
+            // We add padding to the top of the medium card to make room
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = if (task.gold >= 5 && task.gold < 10) 12.dp else 0.dp), 
+            look = look, 
+            contentPadding = 3.dp, 
+            overlay = overlay
         ) {
-            StardewCheckbox(checked = done, onCheckedChange = { onToggle() }, checkedColor = a.check)
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = task.title,
-                    style = StardewTypography.bodyLarge.copy(
-                        textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None
-                    ),
-                    color = if (done) StardewTextSecondary else StardewTextPrimary
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Pill(task.category, modifier = Modifier.weight(1f, fill = false))
-                    GoldBadge(task.gold)
-                    if (task.recurrence != "None") {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            PixelIcon(Sprites.loop, 12.dp)
-                            Text(Dates.repeatLabel(task.recurrence, task.repeatDays), style = StardewTypography.labelSmall, color = StardewTextPrimary, maxLines = 1)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StardewCheckbox(checked = done, onCheckedChange = { onToggle() }, checkedColor = a.check)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.title,
+                        style = StardewTypography.bodyLarge.copy(
+                            textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None
+                        ),
+                        color = if (done) StardewTextSecondary else StardewTextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Pill(task.category, modifier = Modifier.weight(1f, fill = false))
+                        GoldBadge(task.gold)
+                        if (task.recurrence != "None") {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                PixelIcon(Sprites.loop, 12.dp)
+                                Text(Dates.repeatLabel(task.recurrence, task.repeatDays), style = StardewTypography.labelSmall, color = StardewTextPrimary, maxLines = 1)
+                            }
                         }
                     }
+                    val due = Dates.dueLabel(task.dueDay, task.timeMinutes, today)
+                    if (due.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = due,
+                            style = StardewTypography.bodySmall,
+                            color = if (!done && task.dueDay != null && task.dueDay < today) Color(0xFF8E2A1C) else StardewTextPrimary,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1
+                        )
+                    }
                 }
-                val due = Dates.dueLabel(task.dueDay, task.timeMinutes, today)
-                if (due.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = due,
-                        style = StardewTypography.bodySmall,
-                        color = if (!done && task.dueDay != null && task.dueDay < today) Color(0xFF8E2A1C) else StardewTextPrimary,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
-                    )
-                }
+                PixelIcon(a.sprite, 20.dp, modifier = Modifier.padding(horizontal = 4.dp))
+                PixelIconButton(Sprites.pencil, onEdit)
+                PixelIconButton(Sprites.trash, onDelete)
             }
-            PixelIcon(a.sprite, 20.dp, modifier = Modifier.padding(horizontal = 4.dp))
-            PixelIconButton(Sprites.pencil, onEdit)
-            PixelIconButton(Sprites.trash, onDelete)
+        }
+
+        // This draws the honey image on top of the card!
+        if (task.gold >= 5 && task.gold < 10) {
+            Image(
+                painter = painterResource(id = R.drawable.honey_drip),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            )
         }
     }
 }
