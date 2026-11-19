@@ -1,7 +1,0 @@
-<resources>
-    <style name="Theme.CommandAssistant" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#EED9B7</item>
-        <item name="android:statusBarColor">#3B240E</item>
-        <item name="android:navigationBarColor">#3B240E</item>
-    </style>
-</resources>
