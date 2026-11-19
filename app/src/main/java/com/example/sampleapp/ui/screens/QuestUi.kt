@@ -64,18 +64,7 @@ fun QuestCard(
     }
     val overlay: (DrawScope.(Float, Float, Int) -> Unit)? = when {
         task.gold >= 10 -> null
-        task.gold >= 5 -> { w, h, _ ->
-            // honey dripping from the top edge
-            val ds = pxScale(2.dp)
-            val tw = tex.drips.width * ds
-            clipRect(0f, 0f, w, h) {
-                var x = 0
-                while (x < w) {
-                    drawPixels(tex.drips, x.toFloat(), 0f, ds)
-                    x += tw
-                }
-            }
-        }
+        task.gold >= 5 -> null
         else -> { w, h, _ ->
             // moss creeping in from the corners
             val ms = pxScale(2.dp)
@@ -83,7 +72,8 @@ fun QuestCard(
             drawPixels(tex.mossBr, w - tex.mossBr.width * ms - 6.dp.toPx(), h - tex.mossBr.height * ms - 6.dp.toPx(), ms)
         }
     }
-    PanelBox(modifier = Modifier.fillMaxWidth(), look = look, contentPadding = 3.dp, overlay = overlay) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        PanelBox(modifier = Modifier.fillMaxWidth().padding(top = if (task.gold >= 5 && task.gold < 10) 12.dp else 0.dp), look = look, contentPadding = 3.dp, overlay = overlay) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
