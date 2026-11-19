@@ -24,6 +24,10 @@ import com.example.sampleapp.data.TaskEntity
 import com.example.sampleapp.ui.theme.*
 import com.example.sampleapp.util.Dates
 import java.time.LocalDate
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 
 /** Quest difficulty look: Easy = leaves and beige, Medium = honey and amber, Hard = molten rock. */
 class QuestAccent(val check: Color, val sprite: Sprite)
@@ -57,25 +61,16 @@ fun QuestCard(
     val tex = LocalTextures.current
     val a = accentFor(task.gold)
     val done = task.isCompleted
+    
     val look = when {
         task.gold >= 10 -> PanelLook(tex.rock, if (done) tex.parchmentDark else tex.lava, 5.dp, true)
         task.gold >= 5 -> PanelLook(tex.honeyFrame, if (done) tex.parchmentDark else tex.honey, 5.dp, true)
         else -> PanelLook(tex.leafFrame, if (done) tex.parchmentDark else tex.beige, 5.dp, false)
     }
+
     val overlay: (DrawScope.(Float, Float, Int) -> Unit)? = when {
         task.gold >= 10 -> null
-        task.gold >= 5 -> { w, h, _ ->
-            // honey dripping from the top edge
-            val ds = pxScale(2.dp)
-            val tw = tex.drips.width * ds
-            clipRect(0f, 0f, w, h) {
-                var x = 0
-                while (x < w) {
-                    drawPixels(tex.drips, x.toFloat(), 0f, ds)
-                    x += tw
-                }
-            }
-        }
+        task.gold >= 5 -> null // REMOVED the old flat honey here
         else -> { w, h, _ ->
             // moss creeping in from the corners
             val ms = pxScale(2.dp)
@@ -83,51 +78,74 @@ fun QuestCard(
             drawPixels(tex.mossBr, w - tex.mossBr.width * ms - 6.dp.toPx(), h - tex.mossBr.height * ms - 6.dp.toPx(), ms)
         }
     }
-    PanelBox(modifier = Modifier.fillMaxWidth(), look = look, contentPadding = 3.dp, overlay = overlay) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+
+    // NEW: We wrap the PanelBox in a Box so we can layer the honey on top
+    Box(modifier = Modifier.fillMaxWidth()) {
+        
+        PanelBox(
+            // NEW: We add top padding to the medium card to make room for the honey overlap
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = if (task.gold >= 5 && task.gold < 10) 12.dp else 0.dp), 
+            look = look, 
+            contentPadding = 3.dp, 
+            overlay = overlay
         ) {
-            StardewCheckbox(checked = done, onCheckedChange = { onToggle() }, checkedColor = a.check)
-            Spacer(modifier = Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = task.title,
-                    style = StardewTypography.bodyLarge.copy(
-                        textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None
-                    ),
-                    color = if (done) StardewTextSecondary else StardewTextPrimary
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Pill(task.category, modifier = Modifier.weight(1f, fill = false))
-                    GoldBadge(task.gold)
-                    if (task.recurrence != "None") {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            PixelIcon(Sprites.loop, 12.dp)
-                            Text(Dates.repeatLabel(task.recurrence, task.repeatDays), style = StardewTypography.labelSmall, color = StardewTextPrimary, maxLines = 1)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StardewCheckbox(checked = done, onCheckedChange = { onToggle() }, checkedColor = a.check)
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.title,
+                        style = StardewTypography.bodyLarge.copy(
+                            textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None
+                        ),
+                        color = if (done) StardewTextSecondary else StardewTextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Pill(task.category, modifier = Modifier.weight(1f, fill = false))
+                        GoldBadge(task.gold)
+                        if (task.recurrence != "None") {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                PixelIcon(Sprites.loop, 12.dp)
+                                Text(Dates.repeatLabel(task.recurrence, task.repeatDays), style = StardewTypography.labelSmall, color = StardewTextPrimary, maxLines = 1)
+                            }
                         }
                     }
+                    val due = Dates.dueLabel(task.dueDay, task.timeMinutes, today)
+                    if (due.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = due,
+                            style = StardewTypography.bodySmall,
+                            color = if (!done && task.dueDay != null && task.dueDay < today) Color(0xFF8E2A1C) else StardewTextPrimary,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1
+                        )
+                    }
                 }
-                val due = Dates.dueLabel(task.dueDay, task.timeMinutes, today)
-                if (due.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = due,
-                        style = StardewTypography.bodySmall,
-                        color = if (!done && task.dueDay != null && task.dueDay < today) Color(0xFF8E2A1C) else StardewTextPrimary,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
-                    )
-                }
+                PixelIcon(a.sprite, 20.dp, modifier = Modifier.padding(horizontal = 4.dp))
+                PixelIconButton(Sprites.pencil, onEdit)
+                PixelIconButton(Sprites.trash, onDelete)
             }
-            PixelIcon(a.sprite, 20.dp, modifier = Modifier.padding(horizontal = 4.dp))
-            PixelIconButton(Sprites.pencil, onEdit)
-            PixelIconButton(Sprites.trash, onDelete)
+        }
+
+        // NEW: This draws your custom vector honey graphic ON TOP of the card
+        if (task.gold >= 5 && task.gold < 10) {
+            Image(
+                painter = painterResource(id = R.drawable.honey_drip),
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
+            )
         }
     }
 }
-
 @Composable
 fun DifficultyChips(gold: Int, onSelect: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
