@@ -30,8 +30,8 @@ val StardewTextSecondary = Color(0xFF6E553F)
 
 /** Pixelify Sans: a readable pixel font. Regular for body text, Bold for headings. */
 val PixelFont = FontFamily(
-    Font(R.font.pixelify_regular, FontWeight.Normal),
-    Font(R.font.pixelify_bold, FontWeight.Bold)
+    Font(R.font.nt_brick_sans_regular, FontWeight.Normal),
+    Font(R.font.nt_brick_sans_bold, FontWeight.Bold)
 )
 
 private val StardewColorScheme = lightColorScheme(
