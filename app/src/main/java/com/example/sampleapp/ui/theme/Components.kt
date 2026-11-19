@@ -60,7 +60,12 @@ fun StardewPanel(
     val tex = LocalTextures.current
     var look = LocalPanelLook.current
     if (backgroundColor == StardewParchmentDark) look = look.withInterior(tex.parchmentDark)
-    PanelBox(modifier = modifier, look = look, contentPadding = contentPadding) {
+    // I only changed the PanelBox line below to add the shadow
+    PanelBox(
+        modifier = modifier.shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp), clip = false),
+        look = look, 
+        contentPadding = contentPadding
+    ) {
         Column(modifier = Modifier.fillMaxWidth(), content = content)
     }
 }
