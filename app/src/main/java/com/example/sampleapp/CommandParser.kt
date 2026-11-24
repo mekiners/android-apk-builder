@@ -7,8 +7,11 @@ data class ParsedCommand(
     val recurrence: String? = null,  // None / Daily / Weekly / Monthly / Days (null = not mentioned)
     val gold: Int? = null,           // 1 / 5 / 10
     val category: String? = null,    // one of the user's own category names (null = not mentioned)
-    val repeatDays: Int = 0          // weekday bitmask when recurrence == "Days": bit0 = Mon ... bit6 = Sun
+    val repeatDays: Int = 0,         // weekday bitmask when recurrence == "Days": bit0 = Mon ... bit6 = Sun
+    val groceryItems: List<GroceryItem> = emptyList()  // not empty = "buy ..." goes to the grocery list
 )
+
+data class GroceryItem(val name: String, val quantity: String = "")
 
 /**
  * Understands things like:
@@ -122,6 +125,42 @@ object CommandParser {
         return null
     }
 
+    // ---- grocery ("buy milk", "bumili ng itlog and gatas", "bili 2 kg rice")
+    private val rxGrocery = Regex(
+        """^(?:(?:i\s+)?(?:need\s+to|have\s+to|got\s+to|gotta|should|must|please|pls|kailangan(?:\s+kong|\s+ko)?|dapat)\s+)?(buy|bili|bumili|bilhin|pabili|by)\b[\s:,\-]*(.*)$""",
+        opts
+    )
+    private val rxByGuard = Regex(
+        """^(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|tmrw|today|tonight|next|this|the|end|noon|midnight|eod|eow|\d)""", opts
+    )
+    private val rxTagalogLead = Regex("""^(?:ka\s+|tayo\s+|ako\s+|ko\s+)?(?:ng|nang)\s+""", opts)
+    private val rxItemLead = Regex("""^(?:and\s+|some\s+|a\s+|an\s+|the\s+|ng\s+)+""", opts)
+    private val rxSplitEnglish = Regex("""\s*,\s*|\s*&\s*|\s+\+\s+|\s+and\s+""", opts)
+    private val rxSplitTagalog = Regex("""\s*,\s*|\s*&\s*|\s+\+\s+|\s+and\s+|\s+at\s+""", opts)
+    private val rxQty = Regex(
+        """^(\d+(?:[.,]\d+)?\s*(?:kg|kgs|g|l|ml|pcs|pc|pack|packs|box|boxes|dozen|bottles?|cans?|x)?)\s+(.+)$""", opts
+    )
+
+    private fun groceryItems(text: String): List<GroceryItem> {
+        val m = rxGrocery.find(text.trim()) ?: return emptyList()
+        val trigger = m.groupValues[1].lowercase()
+        var rest = m.groupValues[2].trim()
+        if (rest.isBlank()) return emptyList()
+        // "by" is a common typo for "buy", but "by friday" / "by the end of" are deadlines, not shopping
+        if (trigger == "by" && rxByGuard.containsMatchIn(rest)) return emptyList()
+        val tagalog = trigger in setOf("bili", "bumili", "bilhin", "pabili")
+        rest = rxTagalogLead.replace(rest, "")
+        val parts = rest.split(if (tagalog) rxSplitTagalog else rxSplitEnglish)
+        val items = parts.mapNotNull { part ->
+            var item = rxItemLead.replace(part.trim(), "").trim().trim('.', '!', ';')
+            if (item.isBlank()) return@mapNotNull null
+            var qty = ""
+            rxQty.find(item)?.let { q -> qty = q.groupValues[1].trim(); item = q.groupValues[2].trim() }
+            GroceryItem(item.replaceFirstChar { it.uppercase() }, qty)
+        }
+        return items
+    }
+
     fun parse(raw: String, categoryNames: List<String> = emptyList()): ParsedCommand {
         var s = raw.trim()
         var time: Int? = null
@@ -205,7 +244,11 @@ object CommandParser {
             s = s.trim(',', ':', '-', ';').trim()
         }
 
+        // "buy ..." with no time, day, repeat, gold or category = grocery list item(s), not a quest
+        val grocery = if (time == null && day == null && rec == null && gold == null && category == null)
+            groceryItems(s) else emptyList()
+
         val title = if (s.isBlank()) raw.trim() else s.replaceFirstChar { it.uppercase() }
-        return ParsedCommand(title, time, day, rec, gold, category, days)
+        return ParsedCommand(title, time, day, rec, gold, category, days, grocery)
     }
 }
