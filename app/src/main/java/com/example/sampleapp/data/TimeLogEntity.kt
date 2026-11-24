@@ -14,5 +14,6 @@ data class TimeLogEntity(
     val shiftDay: Long,
     val slot: Int,
     val inMillis: Long,
-    val outMillis: Long? = null
+    val outMillis: Long? = null,
+    val overtimeMinutes: Int = 0   // entered by hand per punch; 0 = no overtime. Only these minutes count as overtime.
 )
