@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.sampleapp.data.GroceryEntity
@@ -27,9 +28,15 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val HEAT_COLORS = listOf(
-    Color(0xFFE4CFA9), Color(0xFFB5D58A), Color(0xFF7DB352), Color(0xFF5B8C3E), Color(0xFF3E6329)
-)
+// 11 colours, 2 points each: tan (0-1) -> amber (middle, 10-11) -> red (20+). Edit these three to restyle the heatmap.
+private val HEAT_TAN = Color(0xFFE4CFA9)
+private val HEAT_AMBER = Color(0xFFE8A030)
+private val HEAT_RED = Color(0xFFB8322A)
+private val HEAT_COLORS: List<Color> = List(Stats.HEAT_LEVELS) { i ->
+    val mid = Stats.HEAT_LEVELS / 2
+    if (i <= mid) lerp(HEAT_TAN, HEAT_AMBER, i / mid.toFloat())
+    else lerp(HEAT_AMBER, HEAT_RED, (i - mid) / (Stats.HEAT_LEVELS - 1 - mid).toFloat())
+}
 
 @Composable
 fun StatsScreen(
@@ -124,11 +131,16 @@ fun StatsScreen(
             }
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("less", style = StardewTypography.labelSmall)
+                Text("0", style = StardewTypography.labelSmall)
                 HEAT_COLORS.forEach { c -> Box(Modifier.size(12.dp).background(c).border(1.dp, StardewWoodDark)) }
-                Text("more", style = StardewTypography.labelSmall)
+                Text("20+", style = StardewTypography.labelSmall)
             }
-            Text("Quests, worked shifts and gym days.", style = StardewTypography.bodySmall, color = StardewTextPrimary)
+            Text(
+                "Points per day: hard quest ${Stats.HEAT_HARD}, medium ${Stats.HEAT_MEDIUM}, easy ${Stats.HEAT_EASY}, " +
+                    "shift ${Stats.HEAT_SHIFT}, overtime ${Stats.HEAT_OVERTIME}, gym ${Stats.HEAT_TRAINING}. Each colour = 2 points, red = 20+.",
+                style = StardewTypography.bodySmall,
+                color = StardewTextPrimary
+            )
         }
 
         // Work: pay
@@ -250,7 +262,7 @@ private fun SettingsDialog(settings: AppSettings, onSave: (AppSettings) -> Unit,
         }
     ) {
         SettingField("Hourly rate", rate, { rate = it }, "e.g. 250")
-        SettingField("Overtime after (hours per shift)", otAfter, { otAfter = it }, "8")
+        SettingField("Overtime quick-fill after (hours per shift)", otAfter, { otAfter = it }, "8")
         SettingField("Overtime multiplier", otMult, { otMult = it }, "1.25")
         SettingField("Night differential % (22:00-06:00)", night, { night = it }, "0 or 10")
         SettingField("On-time grace (minutes late)", grace, { grace = it }, "5")
