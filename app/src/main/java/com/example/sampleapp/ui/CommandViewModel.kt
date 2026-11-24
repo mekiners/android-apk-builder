@@ -149,16 +149,17 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
 
     fun addQuest(raw: String, category: String, gold: Int, recurrence: String, repeatDays: Int, dueDay: Long?, timeMinutes: Int?) {
         if (raw.isBlank()) return
-        val p = CommandParser.parse(raw)
+        val p = CommandParser.parse(raw, categories.value.map { it.name })
         val t = _today.value
         val rec = p.recurrence ?: recurrence
-        val days = if (p.recurrence != null) 0 else repeatDays
+        val days = if (p.recurrence != null) p.repeatDays else repeatDays
         val time = p.timeMinutes ?: timeMinutes
+        val cat = p.category ?: category
         var due = p.dayOffset?.let { t + it } ?: dueDay
         if (due == null && (rec != "None" || time != null)) due = t
         val task = TaskEntity(
             title = p.title,
-            category = category,
+            category = cat,
             gold = p.gold ?: gold,
             recurrence = rec,
             repeatDays = days,
@@ -168,7 +169,7 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val id = db.taskDao().insertTask(task)
             scheduleAlarm(task.copy(id = id))
-            toast("Quest added to $category!")
+            toast("Quest added to $cat!")
             refreshWidget()
         }
     }
