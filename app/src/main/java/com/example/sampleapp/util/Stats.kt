@@ -57,7 +57,8 @@ object Stats {
             val out = l.outMillis ?: continue
             if (l.shiftDay < fromDay || l.shiftDay >= toDayExclusive) continue
             val hours = (out - l.inMillis) / 3600000.0
-            val o = maxOf(0.0, hours - s.overtimeAfterHours)
+            // Overtime is entered by hand per punch (not every extra hour counts), never more than the hours worked.
+            val o = minOf(hours, l.overtimeMinutes / 60.0)
             val r = hours - o
             val n = nightHours(l.inMillis, out)
             reg += r
@@ -162,7 +163,22 @@ object Stats {
         return Recap(q.size, q.sumOf { it.gold }, hours, tl.size, gym, spend)
     }
 
-    /** Columns = weeks (oldest first), rows = Mon..Sun. Level 0..4, or -1 for days in the future. */
+    // Heatmap points per day. Change these numbers to retune. Every 2 points = one colour step, 20+ = red.
+    const val HEAT_EASY = 0        // per completed easy quest (1 gold)
+    const val HEAT_MEDIUM = 1      // per completed medium quest (5 gold)
+    const val HEAT_HARD = 2        // per completed hard quest (10 gold)
+    const val HEAT_SHIFT = 3       // worked shift (timed in and out), once per day
+    const val HEAT_OVERTIME = 1    // a punch with overtime entered by hand, once per day
+    const val HEAT_TRAINING = 2    // gym day
+    const val HEAT_LEVELS = 11     // colours: 0-1, 2-3, 4-5 ... 18-19, 20+ points (middle one = amber)
+
+    private fun questPoints(gold: Int): Int = when {
+        gold >= 10 -> HEAT_HARD
+        gold >= 5 -> HEAT_MEDIUM
+        else -> HEAT_EASY
+    }
+
+    /** Columns = weeks (oldest first), rows = Mon..Sun. Level 0..10 (2 points each, 20+ = 10), or -1 for days in the future. */
     fun heatmap(
         weeks: Int,
         today: LocalDate,
@@ -170,8 +186,10 @@ object Stats {
         timeLogs: List<TimeLogEntity>,
         workoutLogs: List<WorkoutLogEntity>
     ): List<List<Int>> {
-        val questCount = questLog.groupBy { it.day }.mapValues { it.value.size }
-        val worked = timeLogs.filter { it.outMillis != null }.map { it.shiftDay }.toSet()
+        val questPts = questLog.groupBy { it.day }.mapValues { e -> e.value.sumOf { q -> questPoints(q.gold) } }
+        val finished = timeLogs.filter { it.outMillis != null }
+        val worked = finished.map { it.shiftDay }.toSet()
+        val overtime = finished.filter { it.overtimeMinutes > 0 }.map { it.shiftDay }.toSet()
         val gym = workoutLogs.map { it.day }.toSet()
         val start = weekStart(today).minusWeeks((weeks - 1).toLong())
         return (0 until weeks).map { col ->
@@ -181,14 +199,11 @@ object Stats {
                     -1
                 } else {
                     val ep = d.toEpochDay()
-                    val score = (questCount[ep] ?: 0) + (if (ep in worked) 2 else 0) + (if (ep in gym) 2 else 0)
-                    when {
-                        score == 0 -> 0
-                        score <= 2 -> 1
-                        score <= 4 -> 2
-                        score <= 6 -> 3
-                        else -> 4
-                    }
+                    val score = (questPts[ep] ?: 0) +
+                        (if (ep in worked) HEAT_SHIFT else 0) +
+                        (if (ep in overtime) HEAT_OVERTIME else 0) +
+                        (if (ep in gym) HEAT_TRAINING else 0)
+                    minOf(HEAT_LEVELS - 1, score / 2)
                 }
             }
         }
