@@ -491,6 +491,11 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /** Overtime is entered by hand per punch; only these minutes count as overtime (heatmap and pay). */
+    fun setOvertime(log: TimeLogEntity, minutes: Int) {
+        viewModelScope.launch { db.timeLogDao().update(log.copy(overtimeMinutes = minutes.coerceAtLeast(0))) }
+    }
+
     // ---------------------------------------------------------------- Leave
 
     /** kind = "Vacation" or "Sick"; null clears the day. */
