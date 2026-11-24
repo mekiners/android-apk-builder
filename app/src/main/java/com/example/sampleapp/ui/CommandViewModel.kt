@@ -150,6 +150,15 @@ class CommandViewModel(application: Application) : AndroidViewModel(application)
     fun addQuest(raw: String, category: String, gold: Int, recurrence: String, repeatDays: Int, dueDay: Long?, timeMinutes: Int?) {
         if (raw.isBlank()) return
         val p = CommandParser.parse(raw, categories.value.map { it.name })
+        // "buy ..." / "bili ..." / "bumili ..." goes straight to the grocery list
+        if (p.groceryItems.isNotEmpty()) {
+            p.groceryItems.forEach { addGrocery(it.name, "Auto", it.quantity) }
+            toast(
+                if (p.groceryItems.size == 1) "Added to your grocery list!"
+                else "Added ${p.groceryItems.size} items to your grocery list!"
+            )
+            return
+        }
         val t = _today.value
         val rec = p.recurrence ?: recurrence
         val days = if (p.recurrence != null) p.repeatDays else repeatDays
