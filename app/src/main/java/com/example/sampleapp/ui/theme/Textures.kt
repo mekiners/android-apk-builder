@@ -113,7 +113,7 @@ private fun loadArt(context: android.content.Context): ArtAssets {
     fun slice(name: String, l: Int, t: Int, r: Int, b: Int): NineSlice? =
         loadOptional(context, name)?.let { NineSlice(it, l, t, r, b) }
     return ArtAssets(
-        panelParchment = slice("art_panel_parchment", 97, 97, 97, 97),
+        panelParchment = null, // old-school drawn pixel panel (webp turned off)
         panelStone = slice("art_panel_stone", 90, 90, 90, 90),
         cardEasy = slice("art_card_easy", 52, 0, 52, 0),
         cardMedium = slice("art_card_medium", 70, 0, 70, 0),
