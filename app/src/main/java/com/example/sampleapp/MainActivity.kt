@@ -141,7 +141,8 @@ fun CozyAssistantApp(vm: CommandViewModel, initialTab: Int = 0) {
                             onSetLeave = vm::setLeave,
                             onPunch = vm::punch,
                             onAddLog = vm::addTimeLog,
-                            onDeleteLog = vm::deleteTimeLog
+                            onDeleteLog = vm::deleteTimeLog,
+                            onSetOvertime = vm::setOvertime
                         )
                         5 -> WorkoutScreen(
                             routines = routines,
