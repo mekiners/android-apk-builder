@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.sampleapp.data.LeaveDayEntity
@@ -66,7 +67,8 @@ fun ShiftScreen(
     onSetLeave: (Long, String?) -> Unit,
     onPunch: () -> Unit,
     onAddLog: (Long, Int, Long, Long?) -> Unit,
-    onDeleteLog: (TimeLogEntity) -> Unit
+    onDeleteLog: (TimeLogEntity) -> Unit,
+    onSetOvertime: (TimeLogEntity, Int) -> Unit
 ) {
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) {
@@ -80,6 +82,7 @@ fun ShiftScreen(
     var selected by remember { mutableStateOf(LocalDate.now()) }
     var brush by remember { mutableStateOf(-1) } // -1 select, 0..5 shift slot, 6 Off, 7 Leave
     var showAddPunch by remember { mutableStateOf(false) }
+    var otLog by remember { mutableStateOf<TimeLogEntity?>(null) }
 
     val slotMap = remember(shifts) { shifts.associate { it.epochDay to it.slots } }
     val leaveMap = remember(leaveDays) { leaveDays.associate { it.epochDay to it.kind } }
@@ -323,7 +326,7 @@ fun ShiftScreen(
             if (dayLogs.isEmpty()) {
                 Text("No time in / out recorded for this day.", style = StardewTypography.bodySmall, color = StardewTextPrimary)
             }
-            dayLogs.forEach { log -> LogRow(log, showDate = false, overtimeAfter = overtimeAfter, onDelete = { onDeleteLog(log) }) }
+            dayLogs.forEach { log -> LogRow(log, showDate = false, onOvertime = { otLog = log }, onDelete = { onDeleteLog(log) }) }
             Spacer(Modifier.height(6.dp))
             StardewChip("Add punch", false, { showAddPunch = true }, sprite = Sprites.plusDark)
         }
@@ -346,7 +349,7 @@ fun ShiftScreen(
             if (monthLogs.isEmpty()) {
                 Text("Nothing logged this month yet.", style = StardewTypography.bodySmall, color = StardewTextPrimary)
             }
-            monthLogs.forEach { log -> LogRow(log, showDate = true, overtimeAfter = overtimeAfter, onDelete = { onDeleteLog(log) }) }
+            monthLogs.forEach { log -> LogRow(log, showDate = true, onOvertime = { otLog = log }, onDelete = { onDeleteLog(log) }) }
         }
 
         RestingCat("Rest well between shifts!")
@@ -358,6 +361,15 @@ fun ShiftScreen(
             defaultSlot = ShiftSlots.clockOrder.firstOrNull { has(slotMap[selected.toEpochDay()] ?: 0, it) } ?: 0,
             onSave = { slot, inMillis, outMillis -> onAddLog(selected.toEpochDay(), slot, inMillis, outMillis) },
             onDismiss = { showAddPunch = false }
+        )
+    }
+
+    otLog?.let { target ->
+        OvertimeDialog(
+            log = target,
+            quickAfterHours = overtimeAfter,
+            onSave = { minutes -> onSetOvertime(target, minutes) },
+            onDismiss = { otLog = null }
         )
     }
 }
@@ -376,7 +388,7 @@ private fun PunchMarker(state: Int) {
 }
 
 @Composable
-private fun LogRow(log: TimeLogEntity, showDate: Boolean, overtimeAfter: Double, onDelete: () -> Unit) {
+private fun LogRow(log: TimeLogEntity, showDate: Boolean, onOvertime: () -> Unit, onDelete: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -388,7 +400,6 @@ private fun LogRow(log: TimeLogEntity, showDate: Boolean, overtimeAfter: Double,
                 (if (log.slot >= 0) ShiftSlots.longNames[log.slot] else "Unscheduled")
             Text(title, style = StardewTypography.bodyLarge)
             val out = log.outMillis
-            val overtime = out != null && (out - log.inMillis) / 3600000.0 > overtimeAfter
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "In ${TimeClock.hhmm(log.inMillis)}   Out ${if (out != null) TimeClock.hhmm(out) else "--:--"}" +
@@ -396,10 +407,76 @@ private fun LogRow(log: TimeLogEntity, showDate: Boolean, overtimeAfter: Double,
                     style = StardewTypography.bodySmall,
                     color = StardewTextPrimary
                 )
-                if (overtime) Text("OVERTIME", style = StardewTypography.labelSmall, color = StardewTerracotta)
+                if (out != null) {
+                    // Overtime is manual: tap to enter how many minutes count as overtime for this punch.
+                    if (log.overtimeMinutes > 0) {
+                        Text(
+                            "OT ${overtimeLabel(log.overtimeMinutes)}",
+                            style = StardewTypography.labelSmall,
+                            color = StardewTerracotta,
+                            modifier = Modifier.clickable { onOvertime() }.padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    } else {
+                        Text(
+                            "+ OT",
+                            style = StardewTypography.labelSmall,
+                            color = StardewTextSecondary,
+                            modifier = Modifier.clickable { onOvertime() }.padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
         }
         PixelIconButton(Sprites.trash, onDelete)
+    }
+}
+
+private fun overtimeLabel(minutes: Int): String =
+    if (minutes >= 60) "${minutes / 60}h" + (if (minutes % 60 > 0) " ${minutes % 60}m" else "") else "${minutes}m"
+
+@Composable
+private fun OvertimeDialog(log: TimeLogEntity, quickAfterHours: Double, onSave: (Int) -> Unit, onDismiss: () -> Unit) {
+    val workedMin = (((log.outMillis ?: log.inMillis) - log.inMillis) / 60000L).toInt().coerceAtLeast(0)
+    val extraMin = (workedMin - Math.round(quickAfterHours * 60).toInt()).coerceAtLeast(0)
+    var text by remember { mutableStateOf(if (log.overtimeMinutes > 0) log.overtimeMinutes.toString() else "") }
+
+    StardewDialog(
+        title = "Overtime",
+        confirmText = "Save",
+        onDismiss = onDismiss,
+        onConfirm = {
+            onSave((text.trim().toIntOrNull() ?: 0).coerceIn(0, workedMin))
+            onDismiss()
+        }
+    ) {
+        Text(
+            "Worked ${overtimeLabel(workedMin)}. Only the minutes you enter here count as overtime (heatmap and pay).",
+            style = StardewTypography.bodySmall,
+            color = StardewTextPrimary
+        )
+        SectionLabel("Overtime minutes")
+        StardewTextField(
+            value = text,
+            onValueChange = { text = it.filter { c -> c.isDigit() } },
+            placeholder = "0",
+            keyboardType = KeyboardType.Number
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            StardewChip("None", text.isEmpty() || text == "0", { text = "" })
+            StardewChip("30 min", text == "30", { text = "30" })
+            StardewChip("1 h", text == "60", { text = "60" })
+            StardewChip("2 h", text == "120", { text = "120" })
+        }
+        if (extraMin > 0) {
+            StardewChip(
+                "All extra time (${overtimeLabel(extraMin)})",
+                text == extraMin.toString(),
+                { text = extraMin.toString() }
+            )
+        }
     }
 }
 
