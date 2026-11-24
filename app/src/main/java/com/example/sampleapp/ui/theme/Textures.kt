@@ -113,11 +113,11 @@ private fun loadArt(context: android.content.Context): ArtAssets {
     fun slice(name: String, l: Int, t: Int, r: Int, b: Int): NineSlice? =
         loadOptional(context, name)?.let { NineSlice(it, l, t, r, b) }
     return ArtAssets(
-        panelParchment = slice("art_panel_parchment", 70, 70, 70, 70),
-        panelStone = slice("art_panel_stone", 85, 85, 85, 85),
-        cardEasy = slice("art_card_easy", 100, 0, 100, 0),
+        panelParchment = slice("art_panel_parchment", 97, 97, 97, 97),
+        panelStone = slice("art_panel_stone", 90, 90, 90, 90),
+        cardEasy = slice("art_card_easy", 52, 0, 52, 0),
         cardMedium = slice("art_card_medium", 70, 0, 70, 0),
-        cardHard = slice("art_card_hard", 170, 0, 170, 0),
+        cardHard = slice("art_card_hard", 86, 0, 86, 0),
         banner = slice("art_banner", 70, 0, 70, 0),
         honey = loadOptional(context, "art_honey"),
         dock = loadOptional(context, "art_dock"),
